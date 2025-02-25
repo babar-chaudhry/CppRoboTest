@@ -1,0 +1,70 @@
+pipeline {
+    agent any
+
+    environment {
+        WORKSPACE = "${env.WORKSPACE}"
+    }
+
+    stages {
+        stage('Clone Repositories') {
+            steps {
+                script {
+                    sh '''
+                    cd ${WORKSPACE}
+                    if [ ! -d "CppRoboTest" ]; then
+                        git clone https://github.com/your-username/CppRoboTest.git
+                    else
+                        cd CppRoboTest && git pull origin main && cd ..
+                    fi
+
+                    if [ ! -d "PyRoboTest" ]; then
+                        git clone https://github.com/your-username/PyRoboTest.git
+                    else
+                        cd PyRoboTest && git pull origin main && cd ..
+                    fi
+                    '''
+                }
+            }
+        }
+
+        stage('Build C++ Code') {
+            steps {
+                script {
+                    sh '''
+                    cd ${WORKSPACE}/CppRoboTest
+                    g++ -o hello_test hello.cpp
+                    chmod +x hello_test
+                    '''
+                }
+            }
+        }
+
+        stage('Run C++ Binary') {
+            steps {
+                script {
+                    sh '''
+                    cd ${WORKSPACE}/CppRoboTest
+                    ./hello_test > ${WORKSPACE}/PyRoboTest/output.txt
+                    '''
+                }
+            }
+        }
+
+        stage('Run Robot Framework Tests') {
+            steps {
+                script {
+                    sh '''
+                    cd ${WORKSPACE}/PyRoboTest
+                    robot --outputdir results cpp_test.robot
+                    '''
+                }
+            }
+        }
+
+        stage('Publish Robot Test Results') {
+            steps {
+                publishRobotFrameworkResults outputPath: 'PyRoboTest/results/'
+            }
+        }
+    }
+}
